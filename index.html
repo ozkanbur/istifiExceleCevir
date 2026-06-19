@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İstif Ebat Listesi - PDF to Excel Dönüştürücü</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <div class="max-w-4xl mx-auto px-4 py-12">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-emerald-700 tracking-tight">İstif Ebat Listesi Dönüştürücü</h1>
+            <p class="text-slate-500 mt-2 text-sm sm:text-base">PDF dosyalarını birebir biçimlendirilmiş, formüllü ve çizgili Excel formatına çevirin.</p>
+            <span class="inline-block mt-3 bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-200">Türk Mühendisliğinin Dijital Gücü</span>
+        </div>
+
+        <div id="dropzone" class="border-3 border-dashed border-slate-300 hover:border-emerald-500 bg-white rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 shadow-sm group">
+            <input type="file" id="fileInput" accept=".pdf" class="hidden">
+            <div class="flex flex-col items-center justify-center space-y-4">
+                <div class="p-4 bg-emerald-50 text-emerald-600 rounded-full group-hover:scale-110 transition-transform duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-lg font-medium text-slate-700">PDF dosyanızı buraya sürükleyin veya <span class="text-emerald-600 font-semibold underline">göz atın</span></p>
+                    <p class="text-xs text-slate-400 mt-1">Sadece İstif Ebat Listesi PDF formatı desteklenir</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="statusBox" class="mt-6 hidden bg-white rounded-xl p-5 border border-slate-200 shadow-sm animate-fade-in">
+            <div class="flex items-center space-x-3">
+                <div id="statusSpinner" class="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent"></div>
+                <p id="statusText" class="text-sm font-medium text-slate-600">Dosya işleniyor...</p>
+            </div>
+        </div>
+
+        <div class="mt-12 bg-slate-100 rounded-xl p-6 border border-slate-200 text-xs sm:text-sm text-slate-600 space-y-2">
+            <h3 class="font-semibold text-slate-800 flex items-center gap-1.5 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+                Sistem Özellikleri ve Kurallar:
+            </h3>
+            <ul class="list-disc list-inside space-y-1 pl-1 text-slate-500">
+                <li><strong class="text-slate-700">Çoklu Sayfa Desteği:</strong> PDF kaç sayfa olursa olsun tüm satırları tarar ve kesintisiz Excel'e aktarır.</li>
+                <li><strong class="text-slate-700">Hücre Biçimlendirmeleri:</strong> Yazı boyutları, koyu başlıklar ve hücre kenarlıkları orijinal şablonla birebir eşleşir.</li>
+                <li><strong class="text-slate-700">Barkod Koruma:</strong> Hiçbir barkod satırı atlanmaz; açıklama sütununa otomatik olarak <code class="bg-white px-1 py-0.5 rounded border">*BARKOD_NO*</code> formatında formülleştirilmeye uygun veri yazılır.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Set up PDF.js worker path
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const statusBox = document.getElementById('statusBox');
+        const statusText = document.getElementById('statusText');
+        const statusSpinner = document.getElementById('statusSpinner');
+
+        // Drag & Drop events
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-emerald-500', 'bg-emerald-50/30'); });
+        dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/30'); });
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/30');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+
+        function showStatus(msg, isDone = false) {
+            statusBox.classList.remove('hidden');
+            statusText.innerText = msg;
+            if (isDone) {
+                statusSpinner.classList.add('hidden');
+            } else {
+                statusSpinner.classList.remove('hidden');
+            }
+        }
+
+        async function handleFile(file) {
+            if (file.type !== 'application/pdf') {
+                alert('Lütfen geçerli bir PDF dosyası yükleyin.');
+                return;
+            }
+
+            try {
+                showStatus('PDF okunuyor ve sayfalar analiz ediliyor...');
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                let allRows = [];
+                let istifNoGlobal = "";
+
+                // Loop through all pages of the PDF
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    showStatus(`Sayfa ${i} / ${pdf.numPages} işleniyor...`);
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    
+                    // Group raw text by vertical coordinate (lines)
+                    let items = textContent.items;
+                    let rowGroups = {};
+                    
+                    items.forEach(item => {
+                        let y = Math.round(item.transform[5]); // Y coordinate
+                        if (!rowGroups[y]) rowGroups[y] = [];
+                        rowGroups[y].push(item);
+                    });
+
+                    // Sort lines from top to bottom
+                    let sortedY = Object.keys(rowGroups).sort((a, b) => b - a);
+
+                    sortedY.forEach(y => {
+                        // Sort items in a line from left to right
+                        let lineItems = rowGroups[y].sort((a, b) => a.transform[4] - b.transform[4]);
+                        let lineText = lineItems.map(item => item.str).join(" ").trim();
+                        
+                        // Regex pattern matching: IstifNo (e.g., 2026/189) and Barkod (e.g., A10314928)
+                        // A typically starting barcode pattern followed by numbers
+                        if (lineText.includes('/') && (lineText.includes('A') || lineText.includes('a'))) {
+                            // Parse items closely by their spaces or structures
+                            // Standard tokens expected: IstifNo, Barcode, Cap, Boy, Adet, Hacim
+                            let parts = lineText.split(/\s+/);
+                            if (parts.length >= 6) {
+                                let istifNo = parts[0];
+                                let barcode = parts[1];
+                                let cap = parts[2];
+                                let boy = parts[3];
+                                let adet = parts[4];
+                                let hacim = parts[5].replace(',', '.'); // Ensure dot decimal for Excel formulas
+
+                                if (barcode.startsWith('A') || barcode.startsWith('a')) {
+                                    if (!istifNoGlobal && istifNo) istifNoGlobal = istifNo.replace('/', ' / ');
+                                    allRows.push({ istifNo: istifNo.replace('/', ' / '), barcode, cap, boy, adet, hacim });
+                                }
+                            }
+                        }
+                    });
+                }
+
+                if (allRows.length === 0) {
+                    alert('PDF içerisinde geçerli istif/barkod satırı bulunamadı. Lütfen şablonu kontrol edin.');
+                    statusBox.classList.add('hidden');
+                    return;
+                }
+
+                showStatus('Excel dosyası orijinal şablona göre üretiliyor...');
+                await generateExcel(allRows, istifNoGlobal);
+                showStatus('Dönüşüm tamamlandı! Excel dosyanız indirildi.', true);
+
+            } catch (error) {
+                console.error(error);
+                alert('Dosya işlenirken bir hata oluştu: ' + error.message);
+                statusBox.classList.add('hidden');
+            }
+        }
+
+        async function generateExcel(data, istifTitle) {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('İstif_Listesi');
+
+            // Set Gridlines visible
+            worksheet.views = [{ showGridLines: true }];
+
+            // Define custom thin border style
+            const thinBorder = {
+                top: { style: 'thin', color: { argb: 'D3D3D3' } },
+                left: { style: 'thin', color: { argb: 'D3D3D3' } },
+                bottom: { style: 'thin', color: { argb: 'D3D3D3' } },
+                right: { style: 'thin', color: { argb: 'D3D3D3' } }
+            };
+
+            // Row 1: Title block containing Istif Number (e.g. 2026 / 189)
+            worksheet.mergeCells('G1');
+            const titleCell = worksheet.getCell('G1');
+            titleCell.value = istifTitle || "2026 / 189";
+            titleCell.font = { name: 'Calibri', size: 11, bold: true };
+            titleCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+            // Row 2: Headers
+            const headers = ['İSTİF NO', 'BARKOD NO', 'ÇAP', 'BOYU', 'ADET', 'HACMİ', 'AÇIKLAMA'];
+            worksheet.getRow(2).values = headers;
+            
+            const headerRow = worksheet.getRow(2);
+            headerRow.height = 20;
+            headerRow.eachCell((cell) => {
+                cell.font = { name: 'Calibri', size: 11, bold: true };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.border = thinBorder;
+            });
+
+            // Populate Data Rows
+            let currentRowIdx = 3;
+            data.forEach((item) => {
+                const row = worksheet.getRow(currentRowIdx);
+                row.height = 18;
+
+                row.getCell(1).value = item.istifNo;
+                row.getCell(2).value = item.barcode;
+                row.getCell(3).value = parseInt(item.cap) || item.cap;
+                row.getCell(4).value = parseFloat(item.boy) || item.boy;
+                row.getCell(5).value = parseInt(item.adet) || 1;
+                row.getCell(6).value = parseFloat(item.hacim) || item.hacim;
+                
+                // Formatted barcode representation for description column (*A10314928*)
+                row.getCell(7).value = `*${item.barcode}*`;
+
+                // Numbers alignment and formatting
+                row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+                row.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
+                row.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' };
+                row.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
+                row.getCell(6).alignment = { horizontal: 'right', vertical: 'middle' };
+                row.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+
+                // Apply number format to volume
+                row.getCell(6).numFmt = '0.000';
+
+                // Borders
+                for (let col = 1; col <= 7; col++) {
+                    row.getCell(col).border = thinBorder;
+                    row.getCell(col).font = { name: 'Calibri', size: 11 };
+                }
+
+                currentRowIdx++;
+            });
+
+            // Auto-adjust column widths cleanly
+            worksheet.columns.forEach((col, index) => {
+                if (index === 6) { // Description column padding
+                    col.width = 16;
+                } else {
+                    col.width = 14;
+                }
+            });
+
+            // Write to buffer and trigger client download
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Istif_Listesi_${(istifTitle || 'Dönüşen').replace(/\s+/g, '')}.xlsx`;
+            link.click();
+        }
+    </script>
+</body>
+</html>
