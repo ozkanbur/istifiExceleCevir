@@ -1,260 +1,519 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İstif Ebat Listesi - PDF to Excel Dönüştürücü</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>İstif Ebat Listesi — PDF → Excel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --paper:#f6f3ec;
+    --ink:#1f2a24;
+    --pine:#2c4a3b;
+    --pine-dark:#1c332a;
+    --bark:#8a5a3b;
+    --amber:#c98a2c;
+    --line:#d8d0bd;
+    --ok:#3c7a4f;
+    --err:#a23b2e;
+    --paper-card:#fffdf8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at top left, #ece6d4 0%, transparent 55%),
+      var(--paper);
+    color:var(--ink);
+    font-family: "Iowan Old Style","Georgia","Times New Roman",serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:48px 20px 80px;
+  }
+
+  .ring-stack{
+    width:56px;height:56px;flex:0 0 auto;
+  }
+
+  header{
+    width:100%;
+    max-width:880px;
+    display:flex;
+    align-items:flex-end;
+    gap:18px;
+    margin-bottom:6px;
+    border-bottom:3px solid var(--pine);
+    padding-bottom:18px;
+  }
+  header h1{
+    font-family:"Iowan Old Style","Georgia",serif;
+    font-weight:600;
+    font-size:clamp(28px,4vw,38px);
+    margin:0;
+    letter-spacing:.2px;
+    color:var(--pine-dark);
+    line-height:1.05;
+  }
+  header .sub{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--bark);
+    margin-top:6px;
+  }
+
+  main{width:100%;max-width:880px;}
+
+  .intro{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:14.5px;
+    line-height:1.65;
+    color:#4b463c;
+    margin:22px 2px 30px;
+    max-width:62ch;
+  }
+  .intro b{color:var(--pine-dark);}
+
+  .dropzone{
+    position:relative;
+    border:2px dashed #b9ad8e;
+    border-radius:4px;
+    background:var(--paper-card);
+    padding:54px 28px;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color .18s ease, background .18s ease, transform .12s ease;
+  }
+  .dropzone::before{
+    content:"";
+    position:absolute; inset:8px;
+    border:1px solid #e3dcc7;
+    pointer-events:none;
+  }
+  .dropzone.drag{
+    border-color:var(--pine);
+    background:#fbf8ef;
+    transform: scale(1.004);
+  }
+  .dropzone.has-error{ border-color: var(--err); }
+
+  .dz-icon{
+    width:54px;height:54px;
+    margin:0 auto 16px;
+    color:var(--bark);
+  }
+  .dz-title{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-weight:600;
+    font-size:16px;
+    color:var(--pine-dark);
+    margin-bottom:6px;
+  }
+  .dz-sub{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:13px;
+    color:#7c7564;
+  }
+  .dz-sub em{font-style:normal;color:var(--bark);border-bottom:1px dotted var(--bark);}
+
+  input[type=file]{display:none;}
+
+  .filelist{
+    margin-top:20px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .file-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:var(--paper-card);
+    border:1px solid var(--line);
+    border-left:4px solid var(--pine);
+    padding:13px 16px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:13.5px;
+  }
+  .file-row.err{border-left-color:var(--err);}
+  .file-row .fname{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font-weight:600;}
+  .file-row .fmeta{color:#8a836f; font-size:12px; white-space:nowrap;}
+  .file-row .ficon{width:18px;height:18px;flex:0 0 auto;color:var(--pine);}
+  .file-row.err .ficon{color:var(--err);}
+
+  .status-banner{
+    margin-top:22px;
+    padding:14px 18px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:13.5px;
+    line-height:1.6;
+    border-radius:2px;
+    display:none;
+  }
+  .status-banner.show{display:block;}
+  .status-banner.info{background:#eef1ea; color:#3c4a3f; border:1px solid #c9d4c0;}
+  .status-banner.error{background:#f7e9e6; color:var(--err); border:1px solid #e3c1ba;}
+  .status-banner.success{background:#eaf2e7; color:var(--ok); border:1px solid #bcdcc3;}
+
+  .result{
+    margin-top:26px;
+    background:var(--paper-card);
+    border:1px solid var(--line);
+    padding:26px 28px;
+    display:none;
+  }
+  .result.show{display:block;}
+  .result h2{
+    font-family:"Iowan Old Style","Georgia",serif;
+    font-size:20px;
+    margin:0 0 14px;
+    color:var(--pine-dark);
+  }
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+    gap:14px;
+    margin-bottom:22px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+  }
+  .stat{
+    border:1px solid var(--line);
+    padding:12px 14px;
+    background:#fbf9f3;
+  }
+  .stat .num{font-size:24px; font-weight:700; color:var(--pine-dark); font-family:"Iowan Old Style",Georgia,serif;}
+  .stat .lbl{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#897f68; margin-top:2px;}
+
+  .download-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    background:var(--pine);
+    color:#fbf8ef;
+    border:none;
+    padding:14px 26px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    letter-spacing:.02em;
+    cursor:pointer;
+    transition: background .15s ease, transform .1s ease;
+  }
+  .download-btn:hover{background:var(--pine-dark); transform:translateY(-1px);}
+  .download-btn:active{transform:translateY(0);}
+  .download-btn svg{width:18px;height:18px;}
+
+  .reset-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:#6c6552;
+    padding:13px 20px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:13.5px;
+    cursor:pointer;
+    margin-left:10px;
+  }
+  .reset-btn:hover{border-color:var(--bark); color:var(--bark);}
+
+  .warn-list{
+    margin-top:18px;
+    padding:14px 16px;
+    background:#fdf6e8;
+    border:1px solid #ecd9a3;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:12.5px;
+    color:#7a5d1d;
+    line-height:1.6;
+  }
+  .warn-list b{display:block; margin-bottom:4px; color:#5e480f;}
+
+  details.tech{
+    margin-top:34px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:12.5px;
+    color:#8a836f;
+  }
+  details.tech summary{cursor:pointer; color:#7c7564; user-select:none;}
+  details.tech .body{margin-top:10px; line-height:1.7; max-width:60ch;}
+
+  footer{
+    margin-top:60px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:11.5px;
+    color:#9b9479;
+    text-align:center;
+  }
+
+  .spinner{
+    width:16px;height:16px;
+    border:2px solid rgba(255,255,255,.4);
+    border-top-color:#fff;
+    border-radius:50%;
+    animation:spin .7s linear infinite;
+    display:inline-block;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  @media (max-width:600px){
+    header{flex-direction:column; align-items:flex-start; gap:6px;}
+    .dropzone{padding:40px 16px;}
+  }
+</style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800">
+<body>
 
-    <div class="max-w-4xl mx-auto px-4 py-12">
-        <div class="text-center mb-10">
-            <h1 class="text-3xl font-bold text-emerald-700 tracking-tight">İstif Ebat Listesi Dönüştürücü</h1>
-            <p class="text-slate-500 mt-2 text-sm sm:text-base">PDF dosyalarını birebir biçimlendirilmiş, formüllü ve çizgili Excel formatına çevirin.</p>
-            <span class="inline-block mt-3 bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-200">Türk Mühendisliğinin Dijital Gücü</span>
-        </div>
+<header>
+  <div>
+    <h1>İstif Ebat Listesi</h1>
+    <div class="sub">PDF → Excel Dönüştürücü</div>
+  </div>
+</header>
 
-        <div id="dropzone" class="border-3 border-dashed border-slate-300 hover:border-emerald-500 bg-white rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 shadow-sm group">
-            <input type="file" id="fileInput" accept=".pdf" class="hidden">
-            <div class="flex flex-col items-center justify-center space-y-4">
-                <div class="p-4 bg-emerald-50 text-emerald-600 rounded-full group-hover:scale-110 transition-transform duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-lg font-medium text-slate-700">PDF dosyanızı buraya sürükleyin veya <span class="text-emerald-600 font-semibold underline">göz atın</span></p>
-                    <p class="text-xs text-slate-400 mt-1">Sadece İstif Ebat Listesi PDF formatı desteklenir</p>
-                </div>
-            </div>
-        </div>
+<main>
+  <p class="intro">
+    İşletme PDF'lerinizi (tek veya çok sayfalı) aşağıya sürükleyin. Barkod numarası
+    yazan <b>her satır</b> okunur ve gönderdiğiniz şablonla <b>birebir aynı</b> biçimde
+    (yazı tipleri, kenarlıklar, sayı biçimleri, barkod fontu ve formülleriyle) bir
+    Excel dosyası olarak hazırlanır. Her şey tarayıcınızda çalışır; dosyalarınız hiçbir
+    sunucuya yüklenmez.
+  </p>
 
-        <div id="statusBox" class="mt-6 hidden bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-            <div class="flex items-center space-x-3">
-                <div id="statusSpinner" class="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent"></div>
-                <p id="statusText" class="text-sm font-medium text-slate-600">Dosya işleniyor...</p>
-            </div>
-        </div>
+  <div class="dropzone" id="dropzone" tabindex="0">
+    <svg class="dz-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M24 6v24M24 30l-8-8M24 30l8-8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M9 32v5a3 3 0 0 0 3 3h24a3 3 0 0 0 3-3v-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="dz-title">İstif ebat listesi PDF'(ler)ini buraya bırakın</div>
+    <div class="dz-sub">veya <em>bilgisayardan seçmek için tıklayın</em> · çok sayfalı PDF'ler desteklenir</div>
+    <input type="file" id="fileInput" accept="application/pdf" multiple>
+  </div>
+
+  <div class="filelist" id="fileList"></div>
+
+  <div class="status-banner" id="statusBanner"></div>
+
+  <div class="result" id="result">
+    <h2 id="resultTitle">Dönüştürme tamamlandı</h2>
+    <div class="stat-grid" id="statGrid"></div>
+    <div id="warnArea"></div>
+    <button class="download-btn" id="downloadBtn">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Excel dosyasını indir
+    </button>
+    <button class="reset-btn" id="resetBtn">Yeni dosya yükle</button>
+  </div>
+
+  <details class="tech">
+    <summary>Bu araç nasıl çalışır?</summary>
+    <div class="body">
+      Yüklediğiniz PDF, tarayıcınızda (PDF.js ile) metne dönüştürülür. Her satırdaki
+      <b>İstif No, Barkod No, Çap, Boy, Adet ve Hacim</b> değerleri ayrıştırılır ve
+      gönderdiğiniz <code>deneme.xlsx</code> şablonunun iç biçimlendirmesi (yazı tipi,
+      hücre kenarlıkları, "Code 3 de 9" barkod fontu, G sütunundaki <code>="*"&amp;B#&amp;"*"</code>
+      barkod formülü, satır yükseklikleri, sütun genişlikleri) korunarak yeni satırlar
+      oluşturulur. Şablonda 339 satıra kadar yer ayrılmıştır; veri bu sınırı aşarsa
+      ek satırlar otomatik olarak aynı biçimle eklenir. Kod GitHub Pages üzerinde
+      statik olarak çalışır, herhangi bir sunucuya veri gönderilmez.
     </div>
+  </details>
+</main>
 
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+<footer>İşletme içi kullanım için hazırlanmıştır · veriler yalnızca tarayıcınızda işlenir</footer>
 
-        const dropzone = document.getElementById('dropzone');
-        const fileInput = document.getElementById('fileInput');
-        const statusBox = document.getElementById('statusBox');
-        const statusText = document.getElementById('statusText');
-        const statusSpinner = document.getElementById('statusSpinner');
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-        dropzone.addEventListener('click', () => fileInput.click());
-        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-emerald-500', 'bg-emerald-50/30'); });
-        dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/30'); });
-        dropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/30');
-            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
-        });
-        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileListEl = document.getElementById('fileList');
+const statusBanner = document.getElementById('statusBanner');
+const resultEl = document.getElementById('result');
+const statGrid = document.getElementById('statGrid');
+const warnArea = document.getElementById('warnArea');
+const downloadBtn = document.getElementById('downloadBtn');
+const resetBtn = document.getElementById('resetBtn');
 
-        function showStatus(msg, isDone = false) {
-            statusBox.classList.remove('hidden');
-            statusText.innerText = msg;
-            if (isDone) statusSpinner.classList.add('hidden');
-            else statusSpinner.classList.remove('hidden');
-        }
+let lastWorkbookBlob = null;
+let lastWorkbookName = 'istif_ebat_listesi.xlsx';
 
-        async function handleFile(file) {
-            if (file.type !== 'application/pdf') {
-                alert('Lütfen geçerli bir PDF dosyası yükleyin.');
-                return;
-            }
+function showStatus(msg, type){
+  statusBanner.className = 'status-banner show ' + type;
+  statusBanner.innerHTML = msg;
+}
+function clearStatus(){
+  statusBanner.className = 'status-banner';
+  statusBanner.innerHTML = '';
+}
+function fileIcon(err){
+  return `<svg class="ficon" viewBox="0 0 24 24" fill="none">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M14 2v6h6" stroke="currentColor" stroke-width="1.6"/>
+  </svg>`;
+}
 
-            try {
-                showStatus('PDF okunuyor ve sayfalar analiz ediliyor...');
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                
-                let allRows = [];
-                let istifNoGlobal = "";
+['dragenter','dragover'].forEach(ev=>{
+  dropzone.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dropzone.classList.add('drag'); });
+});
+['dragleave','drop'].forEach(ev=>{
+  dropzone.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('drag'); });
+});
+dropzone.addEventListener('drop', e=>{
+  const files = Array.from(e.dataTransfer.files).filter(f=>f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+  if(files.length) handleFiles(files);
+});
+dropzone.addEventListener('click', ()=> fileInput.click());
+dropzone.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' ') fileInput.click(); });
+fileInput.addEventListener('change', e=> handleFiles(Array.from(e.target.files)));
 
-                // Tüm sayfaları sırayla oku
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    showStatus(`Sayfa ${i} / ${pdf.numPages} metinleri çözümleniyor...`);
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    
-                    // PDF'deki tüm metin parçalarını birleştiriyoruz
-                    let fullPageText = textContent.items.map(item => item.str).join("");
-                    
-                    // Satır geçişlerini ve tırnak işaretlerini normalize ediyoruz
-                    // Gönderdiğiniz PDF yapısı: "2026/189\n","A10314928\n","30\n",...
-                    let lines = fullPageText.split(/\r?\n/);
+resetBtn.addEventListener('click', ()=>{
+  resultEl.classList.remove('show');
+  fileListEl.innerHTML='';
+  clearStatus();
+  fileInput.value='';
+  lastWorkbookBlob = null;
+});
 
-                    lines.forEach(line => {
-                        // Tırnakları temizle ve virgüle göre ayır
-                        let cleanLine = line.replace(/"/g, '').trim();
-                        let parts = cleanLine.split(',');
+downloadBtn.addEventListener('click', ()=>{
+  if(!lastWorkbookBlob) return;
+  const url = URL.createObjectURL(lastWorkbookBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = lastWorkbookName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+});
 
-                        if (parts.length >= 6) {
-                            let istifNo = parts[0].trim();
-                            let barcode = parts[1].trim();
-                            let cap = parts[2].trim();
-                            let boy = parts[3].trim();
-                            let adet = parts[4].trim();
-                            let hacim = parts[5].trim();
+async function handleFiles(files){
+  fileListEl.innerHTML='';
+  resultEl.classList.remove('show');
+  clearStatus();
+  files.sort((a,b)=> a.name.localeCompare(b.name, 'tr'));
 
-                            // Barkod geçerlilik kontrolü (A harfi ile başlayan satırlar)
-                            if (barcode.startsWith('A') || barcode.startsWith('a')) {
-                                if (!istifNoGlobal && istifNo) {
-                                    istifNoGlobal = istifNo.replace('/', ' / ');
-                                }
-                                allRows.push({
-                                    istifNo: istifNo.replace('/', ' / '),
-                                    barcode: barcode,
-                                    cap: cap,
-                                    boy: boy,
-                                    adet: adet === "" ? 1 : adet, // Eğer PDF'de adet boşsa 1 kabul et
-                                    hacim: hacim
-                                });
-                            }
-                        }
-                    });
-                }
+  files.forEach(f=>{
+    const row = document.createElement('div');
+    row.className='file-row';
+    row.innerHTML = `${fileIcon(false)}<span class="fname">${escapeHtml(f.name)}</span><span class="fmeta">${(f.size/1024).toFixed(0)} KB</span>`;
+    fileListEl.appendChild(row);
+  });
 
-                if (allRows.length === 0) {
-                    alert('PDF içerisinde geçerli istif/barkod satırı bulunamadı. Lütfen şablonu kontrol edin.');
-                    statusBox.classList.add('hidden');
-                    return;
-                }
+  showStatus('<span class="spinner" style="border-color:rgba(60,90,75,.25); border-top-color:#2c4a3b;"></span> PDF okunuyor ve satırlar ayrıştırılıyor…', 'info');
 
-                showStatus('Excel dosyası orijinal şablona göre üretiliyor...');
-                await generateExcel(allRows, istifNoGlobal);
-                showStatus('Dönüşüm tamamlandı! Excel dosyanız indirildi.', true);
+  try{
+    let allRecords = [];
+    let header = null;
+    for(const file of files){
+      const buf = await file.arrayBuffer();
+      const { records, headerInfo } = await extractRecordsFromPdf(buf);
+      if(!header) header = headerInfo;
+      allRecords = allRecords.concat(records);
+    }
 
-            } catch (error) {
-                console.error(error);
-                alert('Dosya işlenirken bir hata oluştu: ' + error.message);
-                statusBox.classList.add('hidden');
-            }
-        }
+    if(allRecords.length === 0){
+      showStatus('PDF içinde barkod numarası içeren herhangi bir satır bulunamadı. Lütfen "İstif Ebat Listesi" formatında bir PDF yüklediğinizden emin olun.', 'error');
+      return;
+    }
 
-        async function generateExcel(data, istifTitle) {
-            const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet('İstif_Listesi');
+    showStatus('<span class="spinner" style="border-color:rgba(60,90,75,.25); border-top-color:#2c4a3b;"></span> Excel dosyası hazırlanıyor…', 'info');
 
-            // Kılavuz çizgilerini görünür yap
-            worksheet.views = [{ showGridLines: true }];
+    const { blob, warnings } = await buildWorkbook(allRecords);
+    lastWorkbookBlob = blob;
+    lastWorkbookName = (header && header.partyNo) ? `istif_${header.partyNo.replace(/[^\w]+/g,'_')}.xlsx` : 'istif_ebat_listesi.xlsx';
 
-            // Orijinal Excel ile birebir ince kenarlık stili
-            const thinBorder = {
-                top: { style: 'thin', color: { argb: 'FFA6A6A6' } },
-                left: { style: 'thin', color: { argb: 'FFA6A6A6' } },
-                bottom: { style: 'thin', color: { argb: 'FFA6A6A6' } },
-                right: { style: 'thin', color: { argb: 'FFA6A6A6' } }
-            };
+    const totalVolume = allRecords.reduce((s,r)=> s + r.hacim, 0);
 
-            // 1. Satır: Sağ üst köşedeki İstif Numarası Başlığı (G1 Hücresi)
-            worksheet.mergeCells('G1');
-            const titleCell = worksheet.getCell('G1');
-            titleCell.value = istifTitle || "2026 / 189";
-            titleCell.font = { name: 'Calibri', size: 11, bold: true };
-            titleCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    statGrid.innerHTML = `
+      <div class="stat"><div class="num">${allRecords.length}</div><div class="lbl">Satır / Kayıt</div></div>
+      <div class="stat"><div class="num">${files.length}</div><div class="lbl">PDF Dosyası</div></div>
+      <div class="stat"><div class="num">${totalVolume.toFixed(3).replace('.', ',')}</div><div class="lbl">Toplam Hacim (m³)</div></div>
+    `;
 
-            // 2. Satır: Tablo Başlıkları
-            const headers = ['İSTİF NO', 'BARKOD NO', 'ÇAP', 'BOYU', 'ADET', 'HACMİ', 'AÇIKLAMA'];
-            worksheet.getRow(2).values = headers;
-            
-            const headerRow = worksheet.getRow(2);
-            headerRow.height = 20;
-            headerRow.eachCell((cell) => {
-                cell.font = { name: 'Calibri', size: 11, bold: true };
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                cell.border = thinBorder;
-                cell.fill = {
-                    type: 'pattern',
-                    pattern: 'solid',
-                    fgColor: { argb: 'FFEAEAEA' } // Başlıklar için hafif belirgin gri arka plan
-                };
-            });
+    if(warnings.length){
+      warnArea.innerHTML = `<div class="warn-list"><b>Dikkat</b>${warnings.map(w=>escapeHtml(w)).join('<br>')}</div>`;
+    } else {
+      warnArea.innerHTML = '';
+    }
 
-            // Veri Satırlarını Yazdır
-            let currentRowIdx = 3;
-            data.forEach((item) => {
-                const row = worksheet.getRow(currentRowIdx);
-                row.height = 18;
+    clearStatus();
+    resultEl.classList.add('show');
+  }catch(err){
+    console.error(err);
+    showStatus('Dönüştürme sırasında bir hata oluştu: ' + escapeHtml(err.message || String(err)) + '. Lütfen PDF formatının değişmediğinden emin olun.', 'error');
+  }
+}
 
-                row.getCell(1).value = item.istifNo;
-                row.getCell(2).value = item.barcode;
-                row.getCell(3).value = parseInt(item.cap) || item.cap;
-                row.getCell(4).value = parseFloat(item.boy.replace(',', '.')) || item.boy;
-                row.getCell(5).value = parseInt(item.adet) || 1;
-                row.getCell(6).value = parseFloat(item.hacim.replace(',', '.')) || item.hacim;
-                
-                // Açıklama sütunu için yıldızlı barkod formatı (*A10314928*)
-                row.getCell(7).value = `*${item.barcode}*`;
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
-                // Hizalamalar
-                row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-                row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
-                row.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
-                row.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' };
-                row.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
-                row.getCell(6).alignment = { horizontal: 'right', vertical: 'middle' };
-                row.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+// ---------------------------------------------------------------------------
+// PDF parsing
+// ---------------------------------------------------------------------------
+async function extractRecordsFromPdf(arrayBuffer){
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = '';
+  for(let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    // Group items by approximate Y to rebuild lines in reading order
+    const items = content.items.map(it=>({
+      str: it.str,
+      x: it.transform[4],
+      y: Math.round(it.transform[5])
+    }));
+    const lines = {};
+    for(const it of items){
+      const key = it.y;
+      // bucket nearby y-values together (tolerance 2)
+      let bucketKey = key;
+      for(const k of Object.keys(lines)){
+        if(Math.abs(Number(k) - key) <= 2){ bucketKey = Number(k); break; }
+      }
+      if(!lines[bucketKey]) lines[bucketKey] = [];
+      lines[bucketKey].push(it);
+    }
+    const sortedYs = Object.keys(lines).map(Number).sort((a,b)=> b-a);
+    for(const y of sortedYs){
+      const lineItems = lines[y].sort((a,b)=> a.x - b.x);
+      const lineText = lineItems.map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
+      if(lineText) fullText += lineText + '\n';
+    }
+  }
 
-                // Hacim için 3 basamaklı ondalık formatı (0.212, 0.283 gibi)
-                row.getCell(6).numFmt = '0.000';
+  // Header info (party no etc.) — best effort, only used for filename
+  let partyNo = null;
+  const partyMatch = fullText.match(/Parti No\s*:\s*([^\n:]*?)(?=\s+(?:Cinsi|İşletme|İstif|TARAKÇI|$))/);
+  if(partyMatch && partyMatch[1].trim()) partyNo = partyMatch[1].trim();
+  const dateMatch = fullText.match(/İstif Tarihi\s*:\s*([0-9./]+)/);
 
-                // Stil ve Çizgileri Uygula
-                for (let col = 1; col <= 7; col++) {
-                    row.getCell(col).border = thinBorder;
-                    row.getCell(col).font = { name: 'Calibri', size: 11 };
-                }
+  // Data line pattern:
+  // <IstifNo like 2026 / 189>  <BarkodNo like A10314928>  <Çap int>  <Boy num>  <Adet int>  <Hacim num with , or .>
+  const lineRe = /(\d{4}\s*\/\s*\d+)\s+([A-Za-z][A-Za-z0-9]{4,})\s+(\d{1,3})\s+([0-9]+(?:[.,][0-9]+)?)\s+(\d{1,4})\s+([0-9]+[.,][0-9]+)/g;
 
-                currentRowIdx++;
-            });
+  const records = [];
+  let m;
+  while((m = lineRe.exec(fullText)) !== null){
+    const istifNo = m[1].replace(/\s+/g,' ').trim();
+    const barkod = m[2].trim();
+    const cap = parseInt(m[3], 10);
+    const boyRaw = m[4].replace(',', '.');
+    const adet = parseInt(m[5], 10);
+    const hacimRaw = m[6].replace(',', '.');
+    const boy = parseFloat(boyRaw);
+    const hacim = parseFloat(hacimRaw);
+    if(Number.isNaN(cap) || Number.isNaN(boy) || Number.isNaN(adet) || Number.isNaN(hacim)) continue;
+    records.push({
+      istifNo, barkod, cap, boy, boyIsDecimal: boyRaw.includes('.'), adet, hacim
+    });
+  }
 
-            // Orijinal deneme.xlsx dosyasındaki gibi verinin bittiği yerden 
-            // 338. satıra kadar boş çizgili şablonu ve en sağdaki '**' işaretlerini oluşturma
-            const targetTotalRows = 338;
-            for (let idx = currentRowIdx; idx <= targetTotalRows; idx++) {
-                const emptyRow = worksheet.getRow(idx);
-                emptyRow.height = 18;
-                
-                // En sağ sütuna '**' ekle
-                emptyRow.getCell(7).value = '**';
-                emptyRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+  return { records, headerInfo: { partyNo, date: dateMatch ? dateMatch[1] : null } };
+}
+</script>
 
-                for (let col = 1; col <= 7; col++) {
-                    emptyRow.getCell(col).border = thinBorder;
-                    emptyRow.getCell(col).font = { name: 'Calibri', size: 11 };
-                }
-            }
-
-            // Sütun Genişlikleri Ayarı
-            worksheet.columns.forEach((col, index) => {
-                if (index === 6) { 
-                    col.width = 16; // Açıklama sütunu genişliği
-                } else {
-                    col.width = 14; // Diğer standart sütun genişlikleri
-                }
-            });
-
-            // Dosyayı Tarayıcı Üzerinden İndir
-            const buffer = await workbook.xlsx.writeBuffer();
-            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `Istif_Listesi_${(istifTitle || 'Donusen').replace(/\s+/g, '')}.xlsx`;
-            link.click();
-        }
-    </script>
+<script src="template-data.js"></script>
+<script src="xlsx-builder.js"></script>
 </body>
 </html>
