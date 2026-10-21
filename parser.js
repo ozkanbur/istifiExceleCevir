@@ -164,16 +164,19 @@
       if (e && e.name === 'InvalidPDFException') throw new Error('Dosya geçerli bir PDF değil veya bozuk.');
       throw e;
     }
-    const { lines, itemCount } = await extractLines(pdf);
-    if (itemCount === 0) {
-      return { scanned: true, records: [], unparsed: [], pageCount: pdf.numPages, totals: null, date: null };
+    try {
+      const pageCount = pdf.numPages;
+      const { lines, itemCount } = await extractLines(pdf);
+      if (itemCount === 0) {
+        return { scanned: true, records: [], unparsed: [], pageCount, totals: null, date: null };
+      }
+      const { records, unparsed } = parseLines(lines);
+      const head = parseHeader(lines);
+      return { scanned: false, records, unparsed, pageCount, totals: head.totals, date: head.date };
+    } finally {
+      // binlerce PDF işlenirken belleği ve worker'ı serbest bırak
+      try { await pdf.destroy(); } catch (e) { /* yoksay */ }
     }
-    const { records, unparsed } = parseLines(lines);
-    const head = parseHeader(lines);
-    return {
-      scanned: false, records, unparsed,
-      pageCount: pdf.numPages, totals: head.totals, date: head.date
-    };
   }
 
   const api = { parsePdf, parseLines, parseHeader, checkTotals, solveMiddle, expectedVolume };

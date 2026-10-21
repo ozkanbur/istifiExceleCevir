@@ -30,6 +30,13 @@ function xmlEscape(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Şablon baytlarını bir kez çöz, sonraki çağrılarda yeniden kullan (toplu işlemde hız)
+let _templateBytes = null;
+function getTemplateBytes() {
+  if (!_templateBytes) _templateBytes = base64ToUint8Array(TEMPLATE_XLSX_BASE64);
+  return _templateBytes;
+}
+
 function base64ToUint8Array(b64) {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
@@ -85,10 +92,11 @@ function bumpLastRow(text, newLast) {
   return text.replace(/(:\$?[A-Z]{1,2}\$?)339\b/g, (_, p) => p + newLast);
 }
 
-async function buildWorkbook(records) {
+// outType: 'blob' (tarayıcı indirme) veya 'uint8array' (ZIP'e eklemek için)
+async function buildWorkbook(records, outType = 'blob') {
   if (typeof JSZip === 'undefined') throw new Error('JSZip yüklenemedi.');
   const warnings = [];
-  const zip = await JSZip.loadAsync(base64ToUint8Array(TEMPLATE_XLSX_BASE64));
+  const zip = await JSZip.loadAsync(getTemplateBytes());
 
   const sheetPath = 'xl/worksheets/sheet1.xml';
   const sheetFile = zip.file(sheetPath);
@@ -161,7 +169,7 @@ async function buildWorkbook(records) {
   }
 
   const blob = await zip.generateAsync({
-    type: 'blob',
+    type: outType,
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     compression: 'DEFLATE',
     compressionOptions: { level: 6 }
