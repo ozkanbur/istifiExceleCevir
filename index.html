@@ -3,517 +3,398 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="ORBİS İstif Ebat Listesi PDF'lerini şablona uygun Excel dosyasına dönüştürür. Tüm işlem tarayıcıda yapılır.">
 <title>İstif Ebat Listesi — PDF → Excel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%AA%B5%3C/text%3E%3C/svg%3E">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
-    --paper:#f6f3ec;
-    --ink:#1f2a24;
-    --pine:#2c4a3b;
-    --pine-dark:#1c332a;
-    --bark:#8a5a3b;
-    --amber:#c98a2c;
-    --line:#d8d0bd;
-    --ok:#3c7a4f;
-    --err:#a23b2e;
-    --paper-card:#fffdf8;
+    --paper:#f6f3ec; --ink:#1f2a24; --pine:#2c4a3b; --pine-dark:#1c332a;
+    --bark:#8a5a3b; --line:#d8d0bd; --ok:#3c7a4f; --err:#a23b2e; --paper-card:#fffdf8;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:
-      radial-gradient(ellipse at top left, #ece6d4 0%, transparent 55%),
-      var(--paper);
+    background: radial-gradient(ellipse at top left, #ece6d4 0%, transparent 55%), var(--paper);
     color:var(--ink);
-    font-family: "Iowan Old Style","Georgia","Times New Roman",serif;
-    min-height:100vh;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
+    font-family:"Iowan Old Style","Georgia","Times New Roman",serif;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
     padding:48px 20px 80px;
   }
-
-  .ring-stack{
-    width:56px;height:56px;flex:0 0 auto;
-  }
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+  :focus-visible{outline:3px solid var(--bark); outline-offset:2px;}
 
   header{
-    width:100%;
-    max-width:880px;
-    display:flex;
-    align-items:flex-end;
-    gap:18px;
-    margin-bottom:6px;
-    border-bottom:3px solid var(--pine);
-    padding-bottom:18px;
+    width:100%; max-width:880px; margin-bottom:6px;
+    border-bottom:3px solid var(--pine); padding-bottom:18px;
   }
   header h1{
-    font-family:"Iowan Old Style","Georgia",serif;
-    font-weight:600;
-    font-size:clamp(28px,4vw,38px);
-    margin:0;
-    letter-spacing:.2px;
-    color:var(--pine-dark);
-    line-height:1.05;
+    font-weight:600; font-size:clamp(28px,4vw,38px); margin:0;
+    letter-spacing:.2px; color:var(--pine-dark); line-height:1.05;
   }
   header .sub{
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:13px;
-    letter-spacing:.14em;
-    text-transform:uppercase;
-    color:var(--bark);
-    margin-top:6px;
+    font-family:"Helvetica Neue",Arial,sans-serif; font-size:13px;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--bark); margin-top:6px;
   }
-
   main{width:100%;max-width:880px;}
 
   .intro{
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:14.5px;
-    line-height:1.65;
-    color:#4b463c;
-    margin:22px 2px 30px;
-    max-width:62ch;
+    font-family:"Helvetica Neue",Arial,sans-serif; font-size:14.5px; line-height:1.65;
+    color:#4b463c; margin:22px 2px 30px; max-width:62ch;
   }
   .intro b{color:var(--pine-dark);}
 
   .dropzone{
-    position:relative;
-    border:2px dashed #b9ad8e;
-    border-radius:4px;
-    background:var(--paper-card);
-    padding:54px 28px;
-    text-align:center;
-    cursor:pointer;
-    transition: border-color .18s ease, background .18s ease, transform .12s ease;
+    position:relative; border:2px dashed #b9ad8e; border-radius:4px;
+    background:var(--paper-card); padding:54px 28px; text-align:center; cursor:pointer;
+    transition:border-color .18s ease, background .18s ease;
   }
-  .dropzone::before{
-    content:"";
-    position:absolute; inset:8px;
-    border:1px solid #e3dcc7;
-    pointer-events:none;
-  }
-  .dropzone.drag{
-    border-color:var(--pine);
-    background:#fbf8ef;
-    transform: scale(1.004);
-  }
-  .dropzone.has-error{ border-color: var(--err); }
-
-  .dz-icon{
-    width:54px;height:54px;
-    margin:0 auto 16px;
-    color:var(--bark);
-  }
-  .dz-title{
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-weight:600;
-    font-size:16px;
-    color:var(--pine-dark);
-    margin-bottom:6px;
-  }
-  .dz-sub{
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:13px;
-    color:#7c7564;
-  }
+  .dropzone::before{content:""; position:absolute; inset:8px; border:1px solid #e3dcc7; pointer-events:none;}
+  .dropzone.drag{border-color:var(--pine); background:#fbf8ef;}
+  .dropzone[aria-busy="true"]{opacity:.6; cursor:progress;}
+  .dz-icon{width:54px;height:54px;margin:0 auto 16px;color:var(--bark);display:block;}
+  .dz-title{font-family:"Helvetica Neue",Arial,sans-serif;font-weight:600;font-size:16px;color:var(--pine-dark);margin-bottom:6px;}
+  .dz-sub{font-family:"Helvetica Neue",Arial,sans-serif;font-size:13px;color:#6f6857;}
   .dz-sub em{font-style:normal;color:var(--bark);border-bottom:1px dotted var(--bark);}
-
   input[type=file]{display:none;}
 
-  .filelist{
-    margin-top:20px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  }
+  .filelist{margin-top:20px;display:flex;flex-direction:column;gap:10px;}
   .file-row{
-    display:flex;
-    align-items:center;
-    gap:14px;
-    background:var(--paper-card);
-    border:1px solid var(--line);
-    border-left:4px solid var(--pine);
-    padding:13px 16px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:13.5px;
+    display:flex; align-items:center; gap:14px; background:var(--paper-card);
+    border:1px solid var(--line); border-left:4px solid var(--pine);
+    padding:13px 16px; font-family:"Helvetica Neue",Arial,sans-serif; font-size:13.5px;
   }
   .file-row.err{border-left-color:var(--err);}
-  .file-row .fname{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font-weight:600;}
-  .file-row .fmeta{color:#8a836f; font-size:12px; white-space:nowrap;}
-  .file-row .ficon{width:18px;height:18px;flex:0 0 auto;color:var(--pine);}
+  .file-row.ok{border-left-color:var(--ok);}
+  .file-row .fname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+  .file-row .fmeta{color:#6f6857;font-size:12px;text-align:right;}
+  .file-row.err .fmeta{color:var(--err);}
+  .ficon{width:18px;height:18px;flex:0 0 auto;color:var(--pine);}
   .file-row.err .ficon{color:var(--err);}
 
   .status-banner{
-    margin-top:22px;
-    padding:14px 18px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:13.5px;
-    line-height:1.6;
-    border-radius:2px;
-    display:none;
+    margin-top:22px; padding:14px 18px; font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:13.5px; line-height:1.6; border-radius:2px; display:none;
   }
   .status-banner.show{display:block;}
-  .status-banner.info{background:#eef1ea; color:#3c4a3f; border:1px solid #c9d4c0;}
-  .status-banner.error{background:#f7e9e6; color:var(--err); border:1px solid #e3c1ba;}
-  .status-banner.success{background:#eaf2e7; color:var(--ok); border:1px solid #bcdcc3;}
+  .status-banner.info{background:#eef1ea;color:#3c4a3f;border:1px solid #c9d4c0;}
+  .status-banner.error{background:#f7e9e6;color:var(--err);border:1px solid #e3c1ba;}
 
-  .result{
-    margin-top:26px;
-    background:var(--paper-card);
-    border:1px solid var(--line);
-    padding:26px 28px;
-    display:none;
-  }
+  .result{margin-top:26px;background:var(--paper-card);border:1px solid var(--line);padding:26px 28px;display:none;}
   .result.show{display:block;}
-  .result h2{
-    font-family:"Iowan Old Style","Georgia",serif;
-    font-size:20px;
-    margin:0 0 14px;
-    color:var(--pine-dark);
+  .result h2{font-size:20px;margin:0 0 14px;color:var(--pine-dark);}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin-bottom:22px;font-family:"Helvetica Neue",Arial,sans-serif;}
+  .stat{border:1px solid var(--line);padding:12px 14px;background:#fbf9f3;}
+  .stat .num{font-size:24px;font-weight:700;color:var(--pine-dark);font-family:"Iowan Old Style",Georgia,serif;}
+  .stat .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6f6857;margin-top:2px;}
+
+  .notes,.warn-list{
+    margin:0 0 16px; padding:12px 16px; font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:12.5px; line-height:1.6;
   }
-  .stat-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
-    gap:14px;
-    margin-bottom:22px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
-  }
-  .stat{
-    border:1px solid var(--line);
-    padding:12px 14px;
-    background:#fbf9f3;
-  }
-  .stat .num{font-size:24px; font-weight:700; color:var(--pine-dark); font-family:"Iowan Old Style",Georgia,serif;}
-  .stat .lbl{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#897f68; margin-top:2px;}
+  .notes{background:#eaf2e7;border:1px solid #bcdcc3;color:#2f6141;}
+  .warn-list{background:#fdf6e8;border:1px solid #ecd9a3;color:#6b5013;}
+  .notes b,.warn-list b{display:block;margin-bottom:4px;}
+  .notes ul,.warn-list ul{margin:0;padding-left:18px;}
+
+  .preview{margin:0 0 22px;font-family:"Helvetica Neue",Arial,sans-serif;font-size:12.5px;}
+  .preview summary{cursor:pointer;color:var(--pine-dark);font-weight:600;margin-bottom:8px;}
+  .tbl-wrap{max-height:320px;overflow:auto;border:1px solid var(--line);}
+  table{border-collapse:collapse;width:100%;min-width:520px;}
+  th,td{padding:6px 10px;text-align:left;border-bottom:1px solid #eee7d4;white-space:nowrap;}
+  th{position:sticky;top:0;background:#f1ecdd;color:#4b463c;font-weight:600;}
+  td.n,th.n{text-align:right;}
+  tr.flag td{background:#fdf0d5;}
 
   .download-btn{
-    display:inline-flex;
-    align-items:center;
-    gap:10px;
-    background:var(--pine);
-    color:#fbf8ef;
-    border:none;
-    padding:14px 26px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-weight:600;
-    font-size:14.5px;
-    letter-spacing:.02em;
-    cursor:pointer;
-    transition: background .15s ease, transform .1s ease;
+    display:inline-flex;align-items:center;gap:10px;background:var(--pine);color:#fbf8ef;border:none;
+    padding:14px 26px;font-family:"Helvetica Neue",Arial,sans-serif;font-weight:600;font-size:14.5px;
+    cursor:pointer;transition:background .15s ease;
   }
-  .download-btn:hover{background:var(--pine-dark); transform:translateY(-1px);}
-  .download-btn:active{transform:translateY(0);}
+  .download-btn:hover{background:var(--pine-dark);}
   .download-btn svg{width:18px;height:18px;}
-
   .reset-btn{
-    background:none;
-    border:1px solid var(--line);
-    color:#6c6552;
-    padding:13px 20px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:13.5px;
-    cursor:pointer;
-    margin-left:10px;
+    background:none;border:1px solid var(--line);color:#5c5645;padding:13px 20px;
+    font-family:"Helvetica Neue",Arial,sans-serif;font-size:13.5px;cursor:pointer;margin-left:10px;
   }
-  .reset-btn:hover{border-color:var(--bark); color:var(--bark);}
+  .reset-btn:hover{border-color:var(--bark);color:var(--bark);}
 
-  .warn-list{
-    margin-top:18px;
-    padding:14px 16px;
-    background:#fdf6e8;
-    border:1px solid #ecd9a3;
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:12.5px;
-    color:#7a5d1d;
-    line-height:1.6;
-  }
-  .warn-list b{display:block; margin-bottom:4px; color:#5e480f;}
+  details.tech{margin-top:34px;font-family:"Helvetica Neue",Arial,sans-serif;font-size:12.5px;color:#6f6857;}
+  details.tech summary{cursor:pointer;user-select:none;}
+  details.tech .body{margin-top:10px;line-height:1.7;max-width:60ch;}
 
-  details.tech{
-    margin-top:34px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:12.5px;
-    color:#8a836f;
-  }
-  details.tech summary{cursor:pointer; color:#7c7564; user-select:none;}
-  details.tech .body{margin-top:10px; line-height:1.7; max-width:60ch;}
+  footer{margin-top:60px;font-family:"Helvetica Neue",Arial,sans-serif;font-size:11.5px;color:#7d765f;text-align:center;}
 
-  footer{
-    margin-top:60px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
-    font-size:11.5px;
-    color:#9b9479;
-    text-align:center;
-  }
-
-  .spinner{
-    width:16px;height:16px;
-    border:2px solid rgba(255,255,255,.4);
-    border-top-color:#fff;
-    border-radius:50%;
-    animation:spin .7s linear infinite;
-    display:inline-block;
-  }
+  .spinner{width:14px;height:14px;border:2px solid rgba(60,90,75,.25);border-top-color:#2c4a3b;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px;}
   @keyframes spin{to{transform:rotate(360deg);}}
-
-  @media (max-width:600px){
-    header{flex-direction:column; align-items:flex-start; gap:6px;}
-    .dropzone{padding:40px 16px;}
-  }
+  @media (prefers-reduced-motion:reduce){.spinner{animation:none;}}
+  @media (max-width:600px){.dropzone{padding:40px 16px;} .reset-btn{margin:10px 0 0;}}
 </style>
 </head>
 <body>
 
 <header>
-  <div>
-    <h1>İstif Ebat Listesi</h1>
-    <div class="sub">PDF → Excel Dönüştürücü</div>
-  </div>
+  <h1>İstif Ebat Listesi</h1>
+  <div class="sub">PDF → Excel Dönüştürücü</div>
 </header>
 
 <main>
   <p class="intro">
-    İşletme PDF'lerinizi (tek veya çok sayfalı) aşağıya sürükleyin. Barkod numarası
-    yazan <b>her satır</b> okunur ve gönderdiğiniz şablonla <b>birebir aynı</b> biçimde
-    (yazı tipleri, kenarlıklar, sayı biçimleri, barkod fontu ve formülleriyle) bir
-    Excel dosyası olarak hazırlanır. Her şey tarayıcınızda çalışır; dosyalarınız hiçbir
-    sunucuya yüklenmez.
+    ORBİS'ten aldığınız İstif Ebat Listesi PDF'lerini (tek veya çok sayfalı, tek veya çok dosya)
+    aşağıya sürükleyin. Barkod numarası yazan <b>her satır</b> okunur, PDF'in
+    <b>genel toplamıyla karşılaştırılır</b> ve şablonla <b>birebir aynı</b> biçimde bir Excel
+    dosyası hazırlanır. Her şey tarayıcınızda çalışır; dosyalarınız hiçbir sunucuya yüklenmez.
   </p>
 
-  <div class="dropzone" id="dropzone" tabindex="0">
-    <svg class="dz-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <div class="dropzone" id="dropzone" tabindex="0" role="button"
+       aria-label="PDF dosyalarını seçmek için tıklayın veya buraya sürükleyin">
+    <svg class="dz-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
       <path d="M24 6v24M24 30l-8-8M24 30l8-8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M9 32v5a3 3 0 0 0 3 3h24a3 3 0 0 0 3-3v-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <div class="dz-title">İstif ebat listesi PDF'(ler)ini buraya bırakın</div>
-    <div class="dz-sub">veya <em>bilgisayardan seçmek için tıklayın</em> · çok sayfalı PDF'ler desteklenir</div>
-    <input type="file" id="fileInput" accept="application/pdf" multiple>
+    <div class="dz-sub">veya <em>bilgisayardan seçmek için tıklayın</em></div>
+    <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple>
   </div>
 
   <div class="filelist" id="fileList"></div>
-
-  <div class="status-banner" id="statusBanner"></div>
+  <div class="status-banner" id="statusBanner" role="status" aria-live="polite"></div>
 
   <div class="result" id="result">
     <h2 id="resultTitle">Dönüştürme tamamlandı</h2>
     <div class="stat-grid" id="statGrid"></div>
+    <div id="noteArea"></div>
     <div id="warnArea"></div>
-    <button class="download-btn" id="downloadBtn">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <details class="preview" id="previewBox">
+      <summary>Okunan satırları önizle</summary>
+      <div class="tbl-wrap"><table id="previewTable"></table></div>
+    </details>
+    <button class="download-btn" id="downloadBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Excel dosyasını indir
     </button>
-    <button class="reset-btn" id="resetBtn">Yeni dosya yükle</button>
+    <button class="reset-btn" id="resetBtn" type="button">Yeni dosya yükle</button>
   </div>
 
   <details class="tech">
     <summary>Bu araç nasıl çalışır?</summary>
     <div class="body">
-      Yüklediğiniz PDF, tarayıcınızda (PDF.js ile) metne dönüştürülür. Her satırdaki
-      <b>İstif No, Barkod No, Çap, Boy, Adet ve Hacim</b> değerleri ayrıştırılır ve
-      gönderdiğiniz <code>deneme.xlsx</code> şablonunun iç biçimlendirmesi (yazı tipi,
-      hücre kenarlıkları, "Code 3 de 9" barkod fontu, G sütunundaki <code>="*"&amp;B#&amp;"*"</code>
-      barkod formülü, satır yükseklikleri, sütun genişlikleri) korunarak yeni satırlar
-      oluşturulur. Şablonda 339 satıra kadar yer ayrılmıştır; veri bu sınırı aşarsa
-      ek satırlar otomatik olarak aynı biçimle eklenir. Kod GitHub Pages üzerinde
-      statik olarak çalışır, herhangi bir sunucuya veri gönderilmez.
+      PDF, tarayıcınızda (PDF.js ile) metne dönüştürülür. Her satırdaki
+      <b>İstif No, Barkod No, Çap, Boy, Adet ve Hacim</b> değerleri ayrıştırılır. Sayfa
+      geçişlerinde birleşen sütunlar, hacim formülüyle (π/4 · çap² · boy · adet)
+      doğrulanarak ayrılır. Okunan adet ve hacim toplamı PDF'teki "GENEL TOPLAM" satırıyla
+      karşılaştırılır; uyuşmazlık varsa uyarı verilir. Excel, şablonun biçimi (yazı tipi,
+      kenarlıklar, barkod fontu, <code>="*"&amp;B#&amp;"*"</code> formülü) korunarak üretilir.
+      Şablon 339. satıra kadar hazırdır; veri aşarsa satırlar aynı biçimle eklenir.
+      Barkodların görünmesi için bilgisayarda "Code 3 de 9" fontunun kurulu olması gerekir.
     </div>
   </details>
 </main>
 
 <footer>İşletme içi kullanım için hazırlanmıştır · veriler yalnızca tarayıcınızda işlenir</footer>
 
-<script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('fileInput');
-const fileListEl = document.getElementById('fileList');
-const statusBanner = document.getElementById('statusBanner');
-const resultEl = document.getElementById('result');
-const statGrid = document.getElementById('statGrid');
-const warnArea = document.getElementById('warnArea');
-const downloadBtn = document.getElementById('downloadBtn');
-const resetBtn = document.getElementById('resetBtn');
-
-let lastWorkbookBlob = null;
-let lastWorkbookName = 'istif_ebat_listesi.xlsx';
-
-function showStatus(msg, type){
-  statusBanner.className = 'status-banner show ' + type;
-  statusBanner.innerHTML = msg;
-}
-function clearStatus(){
-  statusBanner.className = 'status-banner';
-  statusBanner.innerHTML = '';
-}
-function fileIcon(err){
-  return `<svg class="ficon" viewBox="0 0 24 24" fill="none">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="1.6"/>
-    <path d="M14 2v6h6" stroke="currentColor" stroke-width="1.6"/>
-  </svg>`;
-}
-
-['dragenter','dragover'].forEach(ev=>{
-  dropzone.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dropzone.classList.add('drag'); });
-});
-['dragleave','drop'].forEach(ev=>{
-  dropzone.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('drag'); });
-});
-dropzone.addEventListener('drop', e=>{
-  const files = Array.from(e.dataTransfer.files).filter(f=>f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
-  if(files.length) handleFiles(files);
-});
-dropzone.addEventListener('click', ()=> fileInput.click());
-dropzone.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' ') fileInput.click(); });
-fileInput.addEventListener('change', e=> handleFiles(Array.from(e.target.files)));
-
-resetBtn.addEventListener('click', ()=>{
-  resultEl.classList.remove('show');
-  fileListEl.innerHTML='';
-  clearStatus();
-  fileInput.value='';
-  lastWorkbookBlob = null;
-});
-
-downloadBtn.addEventListener('click', ()=>{
-  if(!lastWorkbookBlob) return;
-  const url = URL.createObjectURL(lastWorkbookBlob);
-  const a = document.createElement('a');
-  a.href = url; a.download = lastWorkbookName;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 4000);
-});
-
-async function handleFiles(files){
-  fileListEl.innerHTML='';
-  resultEl.classList.remove('show');
-  clearStatus();
-  files.sort((a,b)=> a.name.localeCompare(b.name, 'tr'));
-
-  files.forEach(f=>{
-    const row = document.createElement('div');
-    row.className='file-row';
-    row.innerHTML = `${fileIcon(false)}<span class="fname">${escapeHtml(f.name)}</span><span class="fmeta">${(f.size/1024).toFixed(0)} KB</span>`;
-    fileListEl.appendChild(row);
-  });
-
-  showStatus('<span class="spinner" style="border-color:rgba(60,90,75,.25); border-top-color:#2c4a3b;"></span> PDF okunuyor ve satırlar ayrıştırılıyor…', 'info');
-
-  try{
-    let allRecords = [];
-    let header = null;
-    for(const file of files){
-      const buf = await file.arrayBuffer();
-      const { records, headerInfo } = await extractRecordsFromPdf(buf);
-      if(!header) header = headerInfo;
-      allRecords = allRecords.concat(records);
-    }
-
-    if(allRecords.length === 0){
-      showStatus('PDF içinde barkod numarası içeren herhangi bir satır bulunamadı. Lütfen "İstif Ebat Listesi" formatında bir PDF yüklediğinizden emin olun.', 'error');
-      return;
-    }
-
-    showStatus('<span class="spinner" style="border-color:rgba(60,90,75,.25); border-top-color:#2c4a3b;"></span> Excel dosyası hazırlanıyor…', 'info');
-
-    const { blob, warnings } = await buildWorkbook(allRecords);
-    lastWorkbookBlob = blob;
-    lastWorkbookName = (header && header.partyNo) ? `istif_${header.partyNo.replace(/[^\w]+/g,'_')}.xlsx` : 'istif_ebat_listesi.xlsx';
-
-    const totalVolume = allRecords.reduce((s,r)=> s + r.hacim, 0);
-
-    statGrid.innerHTML = `
-      <div class="stat"><div class="num">${allRecords.length}</div><div class="lbl">Satır / Kayıt</div></div>
-      <div class="stat"><div class="num">${files.length}</div><div class="lbl">PDF Dosyası</div></div>
-      <div class="stat"><div class="num">${totalVolume.toFixed(3).replace('.', ',')}</div><div class="lbl">Toplam Hacim (m³)</div></div>
-    `;
-
-    if(warnings.length){
-      warnArea.innerHTML = `<div class="warn-list"><b>Dikkat</b>${warnings.map(w=>escapeHtml(w)).join('<br>')}</div>`;
-    } else {
-      warnArea.innerHTML = '';
-    }
-
-    clearStatus();
-    resultEl.classList.add('show');
-  }catch(err){
-    console.error(err);
-    showStatus('Dönüştürme sırasında bir hata oluştu: ' + escapeHtml(err.message || String(err)) + '. Lütfen PDF formatının değişmediğinden emin olun.', 'error');
-  }
-}
-
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-// ---------------------------------------------------------------------------
-// PDF parsing
-// ---------------------------------------------------------------------------
-async function extractRecordsFromPdf(arrayBuffer){
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  let fullText = '';
-  for(let p=1; p<=pdf.numPages; p++){
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    // Group items by approximate Y to rebuild lines in reading order
-    const items = content.items.map(it=>({
-      str: it.str,
-      x: it.transform[4],
-      y: Math.round(it.transform[5])
-    }));
-    const lines = {};
-    for(const it of items){
-      const key = it.y;
-      // bucket nearby y-values together (tolerance 2)
-      let bucketKey = key;
-      for(const k of Object.keys(lines)){
-        if(Math.abs(Number(k) - key) <= 2){ bucketKey = Number(k); break; }
-      }
-      if(!lines[bucketKey]) lines[bucketKey] = [];
-      lines[bucketKey].push(it);
-    }
-    const sortedYs = Object.keys(lines).map(Number).sort((a,b)=> b-a);
-    for(const y of sortedYs){
-      const lineItems = lines[y].sort((a,b)=> a.x - b.x);
-      const lineText = lineItems.map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
-      if(lineText) fullText += lineText + '\n';
-    }
-  }
-
-  // Header info (party no etc.) — best effort, only used for filename
-  let partyNo = null;
-  const partyMatch = fullText.match(/Parti No\s*:\s*([^\n:]*?)(?=\s+(?:Cinsi|İşletme|İstif|TARAKÇI|$))/);
-  if(partyMatch && partyMatch[1].trim()) partyNo = partyMatch[1].trim();
-  const dateMatch = fullText.match(/İstif Tarihi\s*:\s*([0-9./]+)/);
-
-  // Data line pattern:
-  // <IstifNo like 2026 / 189>  <BarkodNo like A10314928>  <Çap int>  <Boy num>  <Adet int>  <Hacim num with , or .>
-  const lineRe = /(\d{4}\s*\/\s*\d+)\s+([A-Za-z][A-Za-z0-9]{4,})\s+(\d{1,3})\s+([0-9]+(?:[.,][0-9]+)?)\s+(\d{1,4})\s+([0-9]+[.,][0-9]+)/g;
-
-  const records = [];
-  let m;
-  while((m = lineRe.exec(fullText)) !== null){
-    const istifNo = m[1].replace(/\s+/g,' ').trim();
-    const barkod = m[2].trim();
-    const cap = parseInt(m[3], 10);
-    const boyRaw = m[4].replace(',', '.');
-    const adet = parseInt(m[5], 10);
-    const hacimRaw = m[6].replace(',', '.');
-    const boy = parseFloat(boyRaw);
-    const hacim = parseFloat(hacimRaw);
-    if(Number.isNaN(cap) || Number.isNaN(boy) || Number.isNaN(adet) || Number.isNaN(hacim)) continue;
-    records.push({
-      istifNo, barkod, cap, boy, boyIsDecimal: boyRaw.includes('.'), adet, hacim
-    });
-  }
-
-  return { records, headerInfo: { partyNo, date: dateMatch ? dateMatch[1] : null } };
-}
-</script>
+<noscript><p style="font-family:sans-serif;color:#a23b2e">Bu araç için JavaScript gereklidir.</p></noscript>
 
 <script src="template-data.js"></script>
 <script src="xlsx-builder.js"></script>
+<script src="parser.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const dropzone = $('dropzone'), fileInput = $('fileInput'), fileListEl = $('fileList');
+const statusBanner = $('statusBanner'), resultEl = $('result'), statGrid = $('statGrid');
+const noteArea = $('noteArea'), warnArea = $('warnArea');
+const previewTable = $('previewTable'), previewBox = $('previewBox');
+const downloadBtn = $('downloadBtn'), resetBtn = $('resetBtn');
+
+let busy = false;
+let lastBlob = null;
+let lastName = 'istif_ebat_listesi.xlsx';
+const PREVIEW_LIMIT = 500;
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt3 = n => n.toLocaleString('tr-TR', {minimumFractionDigits:3, maximumFractionDigits:3});
+const isPdf = f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+
+function showStatus(html, type){ statusBanner.className = 'status-banner show ' + type; statusBanner.innerHTML = html; }
+function clearStatus(){ statusBanner.className = 'status-banner'; statusBanner.innerHTML = ''; }
+const spin = '<span class="spinner" aria-hidden="true"></span>';
+
+if (typeof pdfjsLib === 'undefined' || typeof JSZip === 'undefined' || !window.IstifParser || typeof buildWorkbook !== 'function' || typeof TEMPLATE_XLSX_BASE64 === 'undefined') {
+  showStatus('Gerekli bileşenler yüklenemedi. İnternet bağlantınızı kontrol edip sayfayı yenileyin. ' +
+    '(template-data.js, xlsx-builder.js ve parser.js dosyalarının index.html ile aynı klasörde olduğundan emin olun.)', 'error');
+} else {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function addFileRow(f){
+  const row = document.createElement('div');
+  row.className = 'file-row';
+  row.innerHTML = '<svg class="ficon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="1.6"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.6"/></svg>' +
+    '<span class="fname">' + esc(f.name) + '</span><span class="fmeta">' + (f.size/1024).toFixed(0) + ' KB</span>';
+  fileListEl.appendChild(row);
+  return row;
+}
+function markRow(row, cls, text){
+  row.classList.add(cls);
+  row.querySelector('.fmeta').textContent = text;
+}
+
+function resetAll(){
+  resultEl.classList.remove('show');
+  fileListEl.innerHTML = '';
+  noteArea.innerHTML = warnArea.innerHTML = previewTable.innerHTML = '';
+  clearStatus();
+  lastBlob = null;
+}
+
+function listBox(cls, title, items){
+  const max = 8;
+  const shown = items.slice(0, max).map(i => '<li>' + esc(i) + '</li>').join('');
+  const more = items.length > max ? '<li>… ve ' + (items.length - max) + ' madde daha</li>' : '';
+  return '<div class="' + cls + '"><b>' + esc(title) + '</b><ul>' + shown + more + '</ul></div>';
+}
+
+function makeFileName(records){
+  const byYear = {};
+  records.forEach(r => {
+    const m = r.istifNo.match(/(\d{4})\s*\/\s*(\d+)/);
+    if (m) (byYear[m[1]] = byYear[m[1]] || new Set()).add(m[2]);
+  });
+  const years = Object.keys(byYear);
+  if (years.length !== 1) return 'istif_ebat_listesi.xlsx';
+  const nums = [...byYear[years[0]]].sort((a,b) => a - b);
+  const part = nums.length <= 3 ? nums.join('-') : nums[0] + '-' + nums[nums.length-1] + '_' + nums.length + 'istif';
+  return 'istif_' + years[0] + '_' + part + '.xlsx';
+}
+
+function renderPreview(records){
+  const rows = records.slice(0, PREVIEW_LIMIT).map(r =>
+    '<tr' + (r.volWarn ? ' class="flag"' : '') + '><td>' + esc(r.istifNo) + '</td><td>' + esc(r.barkod) +
+    '</td><td class="n">' + r.cap + '</td><td class="n">' + String(r.boy).replace('.', ',') +
+    '</td><td class="n">' + r.adet + '</td><td class="n">' + String(r.hacim.toFixed(3)).replace('.', ',') + '</td></tr>').join('');
+  previewTable.innerHTML = '<thead><tr><th>İstif No</th><th>Barkod No</th><th class="n">Çap</th><th class="n">Boy</th><th class="n">Adet</th><th class="n">Hacim</th></tr></thead><tbody>' + rows +
+    (records.length > PREVIEW_LIMIT ? '<tr><td colspan="6">… ilk ' + PREVIEW_LIMIT + ' satır gösterildi (Excel\'de hepsi var)</td></tr>' : '') + '</tbody>';
+}
+
+async function handleFiles(fileList){
+  if (busy) { showStatus('Önceki işlem sürüyor, bitmesini bekleyin.', 'info'); return; }
+  const files = fileList.filter(isPdf).sort((a,b) => a.name.localeCompare(b.name, 'tr'));
+  if (!files.length) { showStatus('Yalnızca PDF dosyaları kabul edilir.', 'error'); return; }
+
+  busy = true;
+  dropzone.setAttribute('aria-busy', 'true');
+  resetAll();
+  const rowEls = files.map(addFileRow);
+  showStatus(spin + 'PDF okunuyor ve satırlar ayrıştırılıyor…', 'info');
+
+  try {
+    const all = [], warnings = [], notes = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i], row = rowEls[i];
+      try {
+        const buf = await f.arrayBuffer();
+        const r = await IstifParser.parsePdf(pdfjsLib, buf);
+        if (r.scanned) {
+          markRow(row, 'err', 'Metin yok');
+          warnings.push(f.name + ': PDF\'te okunabilir metin yok (taranmış resim olabilir); atlandı. Orijinal ORBİS PDF\'ini kullanın.');
+          continue;
+        }
+        if (!r.records.length) {
+          markRow(row, 'err', 'Satır yok');
+          warnings.push(f.name + ': barkod numaralı satır bulunamadı; atlandı.');
+          continue;
+        }
+        const chk = IstifParser.checkTotals(r);
+        const sum = r.records.length + ' satır · ' + fmt3(chk.hacimSum) + ' m³';
+        if (chk.status === 'ok') {
+          markRow(row, 'ok', sum + ' ✓');
+          notes.push(f.name + ': ' + chk.adetSum + ' adet / ' + fmt3(chk.hacimSum) + ' m³, PDF genel toplamıyla eşleşti.');
+        } else if (chk.status === 'mismatch') {
+          markRow(row, 'ok', sum);
+          warnings.push(f.name + ': PDF genel toplamı ' + chk.expectedAdet + ' adet / ' + fmt3(chk.expectedHacim) +
+            ' m³, okunan ' + chk.adetSum + ' adet / ' + fmt3(chk.hacimSum) + ' m³. Eksik veya hatalı satır olabilir.');
+        } else {
+          markRow(row, 'ok', sum);
+          warnings.push(f.name + ': "GENEL TOPLAM" satırı bulunamadı, toplam kontrolü yapılamadı.');
+        }
+        if (r.unparsed.length) {
+          warnings.push(f.name + ': ' + r.unparsed.length + ' satır ayrıştırılamadı: ' +
+            r.unparsed.slice(0, 3).map(s => '"' + s + '"').join(', '));
+        }
+        const merged = r.records.filter(x => x.merged).length;
+        if (merged) notes.push(f.name + ': ' + merged + ' satırda birleşen sütunlar hacim formülüyle doğrulanarak ayrıldı.');
+        const vw = r.records.filter(x => x.volWarn).length;
+        if (vw) warnings.push(f.name + ': ' + vw + ' satırda hacim, çap/boy formülüyle uyuşmuyor (önizlemede sarı).');
+        r.records.forEach(x => { x.file = f.name; });
+        all.push(...r.records);
+      } catch (err) {
+        console.error(err);
+        markRow(row, 'err', 'Hata');
+        warnings.push(f.name + ': ' + (err && err.message ? err.message : String(err)));
+      }
+    }
+
+    if (!all.length) {
+      showStatus('Hiçbir dosyadan satır okunamadı.' + (warnings.length ? '<br>' + warnings.map(esc).join('<br>') : ''), 'error');
+      return;
+    }
+
+    // yinelenen barkodlar
+    const seen = new Map();
+    all.forEach(r => seen.set(r.barkod, (seen.get(r.barkod) || 0) + 1));
+    const dups = [...seen].filter(([, n]) => n > 1).map(([b, n]) => b + ' (' + n + ' kez)');
+    if (dups.length) warnings.push('Yinelenen barkod: ' + dups.join(', '));
+
+    showStatus(spin + 'Excel dosyası hazırlanıyor…', 'info');
+    const { blob, warnings: bw } = await buildWorkbook(all);
+    lastBlob = blob;
+    lastName = makeFileName(all);
+    warnings.push(...bw);
+
+    const totalVolume = Math.round(all.reduce((s, r) => s + r.hacim, 0) * 1000) / 1000;
+    const totalAdet = all.reduce((s, r) => s + r.adet, 0);
+    statGrid.innerHTML =
+      '<div class="stat"><div class="num">' + all.length + '</div><div class="lbl">Satır / Kayıt</div></div>' +
+      '<div class="stat"><div class="num">' + totalAdet + '</div><div class="lbl">Toplam Adet</div></div>' +
+      '<div class="stat"><div class="num">' + fmt3(totalVolume) + '</div><div class="lbl">Toplam Hacim (m³)</div></div>' +
+      '<div class="stat"><div class="num">' + files.length + '</div><div class="lbl">PDF Dosyası</div></div>';
+    noteArea.innerHTML = notes.length ? listBox('notes', 'Kontroller', notes) : '';
+    warnArea.innerHTML = warnings.length ? listBox('warn-list', 'Dikkat', warnings) : '';
+    renderPreview(all);
+    previewBox.open = warnings.length > 0;
+    clearStatus();
+    resultEl.classList.add('show');
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (err) {
+    console.error(err);
+    showStatus('Dönüştürme sırasında hata oluştu: ' + esc(err && err.message ? err.message : String(err)), 'error');
+  } finally {
+    busy = false;
+    dropzone.removeAttribute('aria-busy');
+    fileInput.value = ''; // aynı dosya tekrar seçilebilsin
+  }
+}
+
+['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', e => { handleFiles(Array.from(e.dataTransfer.files)); });
+dropzone.addEventListener('click', () => { if (!busy) fileInput.click(); });
+dropzone.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !busy) { e.preventDefault(); fileInput.click(); } });
+fileInput.addEventListener('change', e => handleFiles(Array.from(e.target.files)));
+resetBtn.addEventListener('click', () => { if (!busy) { resetAll(); fileInput.value = ''; } });
+
+downloadBtn.addEventListener('click', () => {
+  if (!lastBlob) return;
+  const url = URL.createObjectURL(lastBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = lastName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+});
+})();
+</script>
 </body>
 </html>
